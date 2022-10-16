@@ -1,11 +1,7 @@
-.page {
-    position: relative;
+﻿.index-page {
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding-top: 30vh;
     height: 100vh;
-}
-
-main {
-    flex: 1;
 }

@@ -21,12 +21,16 @@ var dbOptionsBuilder = new DbContextOptionsBuilder()
     .UseNpgsql(config.ConnectionString);
 
 builder.RegisterInstance(new ServerDbContext(dbOptionsBuilder.Options));
+
+
+builder.RegisterType<AuthRequestHandler>();
 builder.Register<MessageHandlerFactory>(c =>
-    new MessageHandlerFactory(c)
-        .WithHandler<AuthMessageHandler>(MessageType.Auth)
-);
+    new MessageHandlerFactory(c.Resolve<IComponentContext>())
+        .WithHandler<AuthRequestHandler>(MessageType.AuthRequest)
+).SingleInstance();
+
 builder.RegisterType<SocketClient>();
-builder.RegisterType<SocketServer>();
+builder.RegisterType<SocketServer>().SingleInstance();
 
 var container = builder.Build();
 var server = container.Resolve<SocketServer>();

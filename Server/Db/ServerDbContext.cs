@@ -9,8 +9,20 @@ public class ServerDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Message> Messages { get; set; }
 
+    public ServerDbContext()
+    {
+        
+    }
+    
     public ServerDbContext(DbContextOptions options) : base(options)
     {
+        Database.EnsureCreated();
+        Database.Migrate();
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseNpgsql("Host=localhost;Port=5532;Database=lab1;Username=lab1;Password=1234");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

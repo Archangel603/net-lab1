@@ -1,7 +1,8 @@
 ﻿namespace Shared.Message;
 
-public class AuthMessage
+public class AuthRequest
 {
     public string Username { get; set; }
+    
     public string Password { get; set; }
 }

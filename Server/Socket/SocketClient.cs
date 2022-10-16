@@ -7,6 +7,8 @@ public class SocketClient
     public delegate SocketClient Factory(Guid id, SocketConnection connection);
     
     public SocketConnection Connection { get; }
+ 
+    public Guid SessionKey { get; set; }
     
     public Guid Id { get; }
     

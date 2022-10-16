@@ -1,0 +1,4 @@
+﻿{
+  "Port": 5053,
+  "ConnectionString": "Host=localhost;Port=5532;Database=lab1;Username=lab1;Password=1234"
+}

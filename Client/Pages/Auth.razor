@@ -1,0 +1,115 @@
+@page "/auth"
+
+<div class="auth-page">
+    <div class="tabs">
+        <div class="tab-button">
+            Auth
+        </div>
+        <div>
+            Register
+        </div>
+    </div>
+    <div class="active-tab">
+        @if (registerPage)
+            {
+                <form class="form register-form" @onsubmit="Register">
+                    <input class="text-input" type="text" placeholder="Username" @bind="username"/>
+                    <input class="text-input" type="password" placeholder="Password" @bind="password"/>
+                    <input class="text-input" type="password" placeholder="Confirm password" @bind="confirmPassword"/>
+                    <button class="btn" type="submit" disabled="@isLoading">Auth</button>
+        
+                    @if (error != "")
+                    {
+                        <span class="error">@error</span>
+                    }
+                </form>
+            }
+            else
+            {
+                <form class="form auth-form" @onsubmit="Authorize">
+                    <input class="text-input" type="text" placeholder="Username" @bind="username"/>
+                    <input class="text-input" type="password" placeholder="Password" @bind="password"/>
+                    <button class="btn" type="submit" disabled="@isLoading">Auth</button>
+        
+                    @if (error != "")
+                    {
+                        <span class="error">@error</span>
+                    }
+                </form>
+            }
+    </div>
+</div>
+
+@using Client.Socket
+@using global::Shared.Message
+@using global::Shared.Message.Responses
+@using Client.Services
+@implements IDisposable
+@inject SocketService _socketService;
+@inject DialogService _dialogService;
+
+@code {
+
+    private bool registerPage = false;
+    private string error = "";
+
+    private string username = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private bool isLoading = false;
+    
+    private async Task Authorize()
+    {
+        if (String.IsNullOrWhiteSpace(username) || String.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+        
+        await _socketService.SendAuthMessage(new AuthRequest
+        {
+            Username = username,
+            Password = password
+        });
+    }
+    
+    private async Task Register()
+    {
+        if (String.IsNullOrWhiteSpace(username) || String.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+        
+        /*await _socketService.SendAuthMessage(new AuthRequest
+        {
+            Username = username,
+            Password = password
+        });*/
+    }
+
+    private async Task OnAuth(Message message)
+    {
+        var response = message.Body.Read<AuthResponse>();
+
+        await _dialogService.DisplayAlert("Auth success!", response.SessionKey.ToString());
+    }
+    
+    private async Task OnError(Message message)
+    {
+        var response = message.Body.Read<ErrorResponse>();
+
+        await _dialogService.DisplayAlert("Error!", response.Message);
+    }
+
+    protected override void OnInitialized()
+    {
+        _socketService.Subscribe(MessageType.AuthResponse, OnAuth);
+        _socketService.Subscribe(MessageType.Error, OnError);
+    }
+
+    public void Dispose()
+    {
+        _socketService.Unsubscribe(MessageType.AuthResponse, OnAuth);
+        _socketService.Unsubscribe(MessageType.Error, OnError);
+    }
+
+}

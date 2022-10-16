@@ -18,36 +18,46 @@ public class SocketConnection
     public async Task<Message.Message> ReadMessage()
     {
         this._readMutex.WaitOne();
-        
-        var bytes = new byte[9];
-        var received = await this._connection.ReceiveAsync(bytes);
 
-        if (bytes.Length != received)
+        try
         {
-            throw new Exception("Unable to read header");
+            var bytes = new byte[9];
+            var received = await this._connection.ReceiveAsync(bytes);
+
+            if (bytes.Length != received)
+            {
+                throw new Exception("Unable to read header");
+            }
+
+            var header = MessageHeader.FromBytes(bytes);
+            var buffer = new Memory<byte>(new byte[header.Length]);
+
+            await this._connection.ReceiveAsync(buffer);
+            
+            return new Message.Message(header, new MessageBodyReader(buffer));
         }
-
-        var header = MessageHeader.FromBytes(bytes);
-        var buffer = new Memory<byte>(new byte[header.Length]);
-
-        await this._connection.ReceiveAsync(buffer);
-        
-        this._readMutex.ReleaseMutex();
-
-        return new Message.Message(header, new MessageBodyReader(buffer));
+        finally
+        {
+            this._readMutex.ReleaseMutex();
+        }
     }
     
     public async Task WriteMessage<T>(MessageType type, T message)
     {
         this._writeMutex.WaitOne();
-        
-        var serialized = JsonSerializer.SerializeToUtf8Bytes(message, JsonSerializerOptions.Default);
-        var header = new MessageHeader(type, serialized.Length);
 
-        await this._connection.SendAsync(header.ToBytes());
-        await this._connection.SendAsync(serialized);
-        
-        this._writeMutex.ReleaseMutex();
+        try
+        {
+            var serialized = JsonSerializer.SerializeToUtf8Bytes(message, JsonSerializerOptions.Default);
+            var header = new MessageHeader(type, serialized.Length);
+
+            await this._connection.SendAsync(header.ToBytes());
+            await this._connection.SendAsync(serialized);
+        }
+        finally
+        {
+            this._writeMutex.ReleaseMutex();
+        }
     }
     
     public bool IsConnected()

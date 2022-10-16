@@ -4,10 +4,15 @@ namespace Shared.Message;
 
 public enum MessageType
 {
-    // Actions
-    Auth, Register,
-    GetMessages, SendMessage,
-    GetChats, CreateChat, JoinChat, LeaveChat,
+    // Requests
+    AuthRequest, RegisterRequest,
+    GetMessagesRequest, SendMessageRequest,
+    GetChatsRequest, CreateChatRequest, JoinChatRequest, LeaveChatRequest,
+    
+    // Responses
+    AuthResponse, RegisterResponse,
+    GetMessagesResponse, SendMessageResponse,
+    GetChatsResponse, CreateChatResponse, JoinChatResponse, LeaveChatResponse,
     
     // Events
     MessageReceived,
