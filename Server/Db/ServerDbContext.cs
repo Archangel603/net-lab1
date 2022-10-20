@@ -29,9 +29,16 @@ public class ServerDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<User>(builder =>
+        {
+            builder.HasIndex(x => x.Username).IsUnique();
+        });
+        
         modelBuilder.Entity<Chat>(builder =>
         {
             builder.HasMany<User>(x => x.Users).WithMany(x => x.Chats);
+
+            builder.Navigation(x => x.Users).AutoInclude();
         });
         
         modelBuilder.Entity<Message>(builder =>
@@ -44,6 +51,8 @@ public class ServerDbContext : DbContext
             builder.HasOne<Chat>(x => x.Chat)
                 .WithMany()
                 .HasForeignKey(x => x.ChatId);
+
+            builder.Navigation(x => x.Sender).AutoInclude();
         });
     }
 }

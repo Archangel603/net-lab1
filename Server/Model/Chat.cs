@@ -1,9 +1,6 @@
-﻿namespace Server.Model;
+﻿using Shared.Model;
 
-public enum ChatType
-{
-    Public, Private
-}
+namespace Server.Model;
 
 public class Chat
 {

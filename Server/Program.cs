@@ -3,10 +3,9 @@ using Autofac;
 using Microsoft.EntityFrameworkCore;
 using Server;
 using Server.Db;
-using Server.MessageHandlers;
+using Server.Services;
 using Server.Socket;
 using Shared.Message;
-
 
 var configPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
 
@@ -22,12 +21,16 @@ var dbOptionsBuilder = new DbContextOptionsBuilder()
 
 builder.RegisterInstance(new ServerDbContext(dbOptionsBuilder.Options));
 
+foreach (var handler in MessageHandlerFactory.FindMessageHandlers())
+{
+    builder.RegisterType(handler);
+    MessageHandlerFactory.RegisterMessageHandler(handler);
+}
+builder.Register<MessageHandlerFactory>(c => new MessageHandlerFactory(c.Resolve<IComponentContext>()));
 
-builder.RegisterType<AuthRequestHandler>();
-builder.Register<MessageHandlerFactory>(c =>
-    new MessageHandlerFactory(c.Resolve<IComponentContext>())
-        .WithHandler<AuthRequestHandler>(MessageType.AuthRequest)
-).SingleInstance();
+builder.RegisterType<EventBus>().SingleInstance();
+builder.RegisterType<ChatService>().SingleInstance();
+builder.RegisterType<UserService>().SingleInstance();
 
 builder.RegisterType<SocketClient>();
 builder.RegisterType<SocketServer>().SingleInstance();

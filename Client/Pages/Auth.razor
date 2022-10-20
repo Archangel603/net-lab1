@@ -2,10 +2,10 @@
 
 <div class="auth-page">
     <div class="tabs">
-        <div class="tab-button">
+        <div class="tab-button" @onclick="ShowAuthPage">
             Auth
         </div>
-        <div>
+        <div class="tab-button" @onclick="ShowRegisterPage">
             Register
         </div>
     </div>
@@ -16,7 +16,7 @@
                     <input class="text-input" type="text" placeholder="Username" @bind="username"/>
                     <input class="text-input" type="password" placeholder="Password" @bind="password"/>
                     <input class="text-input" type="password" placeholder="Confirm password" @bind="confirmPassword"/>
-                    <button class="btn" type="submit" disabled="@isLoading">Auth</button>
+                    <button class="btn" type="submit" disabled="@isLoading">Register</button>
         
                     @if (error != "")
                     {
@@ -47,6 +47,7 @@
 @implements IDisposable
 @inject SocketService _socketService;
 @inject DialogService _dialogService;
+@inject NavigationManager _navigation;
 
 @code {
 
@@ -57,6 +58,16 @@
     private string password = "";
     private string confirmPassword = "";
     private bool isLoading = false;
+
+    private void ShowAuthPage()
+    {
+        this.registerPage = false;
+    }
+
+    private void ShowRegisterPage()
+    {
+        this.registerPage = true;
+    }
     
     private async Task Authorize()
     {
@@ -79,18 +90,30 @@
             return;
         }
         
-        /*await _socketService.SendAuthMessage(new AuthRequest
+        await _socketService.SendRegisterMessage(new RegisterRequest
         {
             Username = username,
             Password = password
-        });*/
+        });
     }
 
     private async Task OnAuth(Message message)
     {
         var response = message.Body.Read<AuthResponse>();
 
-        await _dialogService.DisplayAlert("Auth success!", response.SessionKey.ToString());
+        _socketService.Authenticate(response.SessionKey, response.User);
+        _navigation.NavigateTo("/chats");
+    }
+    
+    private async Task OnRegister(Message message)
+    {
+        var response = message.Body.Read<RegisterResponse>();
+
+        this.username = "";
+        this.password = "";
+        this.registerPage = false;
+        
+        await _dialogService.DisplayAlert("Registration successful", "");
     }
     
     private async Task OnError(Message message)
@@ -103,12 +126,14 @@
     protected override void OnInitialized()
     {
         _socketService.Subscribe(MessageType.AuthResponse, OnAuth);
+        _socketService.Subscribe(MessageType.RegisterResponse, OnRegister);
         _socketService.Subscribe(MessageType.Error, OnError);
     }
 
     public void Dispose()
     {
         _socketService.Unsubscribe(MessageType.AuthResponse, OnAuth);
+        _socketService.Unsubscribe(MessageType.RegisterResponse, OnRegister);
         _socketService.Unsubscribe(MessageType.Error, OnError);
     }
 

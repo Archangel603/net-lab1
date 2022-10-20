@@ -5,3 +5,16 @@
     padding-top: 30vh;
     height: 100vh;
 }
+
+.tabs {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 20px;
+}
+
+.tab-button {
+    font-weight: bold;
+    cursor: pointer;
+}

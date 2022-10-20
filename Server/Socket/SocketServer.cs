@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using Server.Services;
 using Shared.Message;
+using Shared.Message.Events;
 using Shared.Socket;
 
 namespace Server.Socket;
@@ -11,15 +13,25 @@ public class SocketServer
     private ConcurrentDictionary<Guid, SocketClient> _clients = new();
     private ConcurrentDictionary<Guid, CancellationTokenSource> _listeners = new();
     private System.Net.Sockets.Socket _socket;
+    
     private readonly MessageHandlerFactory _messageHandlerFactory;
     private readonly SocketClient.Factory _clientFactory;
+    private readonly EventBus _eventBus;
+    private readonly ChatService _chatService;
 
-    public SocketServer(SocketClient.Factory clientFactory, MessageHandlerFactory messageHandlerFactory)
+    public SocketServer(
+        SocketClient.Factory clientFactory,
+        MessageHandlerFactory messageHandlerFactory,
+        ChatService chatService,
+        EventBus eventBus
+    )
     {
         this._clientFactory = clientFactory;
         this._messageHandlerFactory = messageHandlerFactory;
+        this._chatService = chatService;
+        this._eventBus = eventBus;
     }
-    
+
     public async Task Start(int port)
     {
         this._socket = new System.Net.Sockets.Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -27,36 +39,67 @@ public class SocketServer
         this._socket.Listen();
 
         Console.WriteLine($"Server is listening on TCP *:{port}");
-        
+
+        await this._chatService.EnsurePublicChatExists();
+
         this.monitorConnections();
+        this.handleEvents();
         await this.handleConnections();
+    }
+
+    private async Task handleEvents()
+    {
+        await foreach (var e in this._eventBus.ListenForEvents(CancellationToken.None))
+        {
+            foreach (var (_, client) in this._clients)
+            {
+                try
+                {
+                    await client.Connection.WriteMessage(e.MessageType, e);
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception);
+                }
+            }
+        }
     }
 
     private async Task handleConnections()
     {
         while (true)
         {
-            var handler = await this._socket.AcceptAsync();
-            var client = this._clientFactory(Guid.NewGuid(), new SocketConnection(handler));
-            var cancellationTokenSource = new CancellationTokenSource();
-            
-            Console.WriteLine($"New client {client.Id} connected");
-            
-            this._clients[client.Id] = client;
-            this._listeners[client.Id] = cancellationTokenSource;
-            this.listenClient(client, cancellationTokenSource.Token);
+            try
+            {
+                var handler = await this._socket.AcceptAsync();
+                var client = this._clientFactory(Guid.NewGuid(), new SocketConnection(handler));
+                var cancellationTokenSource = new CancellationTokenSource();
+
+                Console.WriteLine($"New client {client.Id} connected");
+
+                this._clients[client.Id] = client;
+                this._listeners[client.Id] = cancellationTokenSource;
+                this.listenClient(client, cancellationTokenSource.Token);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
     }
 
     private async Task listenClient(SocketClient client, CancellationToken cancellationToken)
     {
         var fails = 0;
-        
+
         while (!cancellationToken.IsCancellationRequested && fails < 10)
         {
             try
             {
                 var message = await client.Connection.ReadMessage();
+                
+                Console.WriteLine($"New message of type {message.Header.Type} from client {client.Id}");
+                
                 var handler = this._messageHandlerFactory.Create(message.Header.Type);
                 await handler.HandleMessage(message, client);
                 fails = 0;
@@ -84,12 +127,19 @@ public class SocketServer
         {
             foreach (var (id, client) in this._clients.ToList())
             {
-                if (!client.Connection.IsConnected())
+                try
                 {
-                    await this.handleDisconnected(client);
+                    if (!client.Connection.IsConnected())
+                    {
+                        await this.handleDisconnected(client);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
                 }
             }
-            
+
             await Task.Delay(1000);
         }
     }
@@ -99,5 +149,10 @@ public class SocketServer
         Console.WriteLine($"Client {client.Id} disconnected");
         this._listeners[client.Id].Cancel();
         this._clients.Remove(client.Id, out _);
+
+        await this._eventBus.PublishEvent(new UserOfflineEvent
+        {
+            UserId = client.Id
+        });
     }
 }

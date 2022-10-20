@@ -1,0 +1,96 @@
+@page "/chats"
+
+<div class="chats-page">
+    <div class="users">
+        <h2>Users</h2>
+        <div class="users-list">
+            @foreach (var user in LoadedUsers.Where(u => u.Id != _socketService.User.Id))
+            {
+                <div class="user-item">
+                    <div class="user-item__title">
+                        @user.Name
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="chats">
+        <h2>Chats</h2>
+        <button @onclick="LoadChats">Load</button>
+        <div class="chat-list">
+            @foreach (var chat in LoadedChats)
+                {
+                    <div class="chat-item">
+                        <div class="chat-item__title">
+                            @if (chat.Type == ChatType.Public)
+                            {
+                                <span>Форум</span>
+                            }
+                            else
+                            {
+                                <span>@(chat.Users.First(u => u.Id != _socketService.User.Id).Name)</span>
+                            }
+                        </div>
+                    </div>
+                }
+        </div>
+    </div>
+</div>
+
+@using Client.Socket
+@using global::Shared.Message
+@using global::Shared.Message.Responses
+@using Client.Services
+@using global::Shared.Model
+@implements IDisposable
+@inject SocketService _socketService;
+@inject DialogService _dialogService;
+
+@code {
+
+    public List<ChatInfo> LoadedChats = new();
+    public List<UserInfo> LoadedUsers = new();
+
+    private async Task OnChatsLoaded(Message message)
+    {
+        var response = message.Body.Read<GetChatsResponse>();
+
+        LoadedChats = response.Chats;
+        StateHasChanged();
+    }
+    
+    private async Task OnUsersLoaded(Message message)
+    {
+        var response = message.Body.Read<GetChatsResponse>();
+
+        LoadedChats = response.Chats;
+        StateHasChanged();
+    }
+    
+    private async Task OnError(Message message)
+    {
+        var response = message.Body.Read<ErrorResponse>();
+
+        await _dialogService.DisplayAlert("Error!", response.Message);
+    }
+
+    public async Task LoadChats()
+    {
+        await _socketService.RequestChats();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _socketService.Subscribe(MessageType.GetChatsResponse, OnChatsLoaded);
+        _socketService.Subscribe(MessageType.Error, OnError);
+
+        await LoadChats();
+    }
+
+    public void Dispose()
+    {
+        _socketService.Unsubscribe(MessageType.GetChatsResponse, OnChatsLoaded);
+        _socketService.Unsubscribe(MessageType.Error, OnError);
+    }
+
+}

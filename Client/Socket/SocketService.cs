@@ -2,6 +2,9 @@
 using System.Net;
 using System.Net.Sockets;
 using Shared.Message;
+using Shared.Message.Requests;
+using Shared.Message.Responses;
+using Shared.Model;
 using Shared.Socket;
 
 namespace Client.Socket;
@@ -9,8 +12,17 @@ namespace Client.Socket;
 public class SocketService
 {
     private SocketConnection _connection;
+    private Guid? _sessionKey = null;
     private readonly ConcurrentDictionary<MessageType, List<Func<Message, Task>>> _eventHandlers = new();
 
+    public UserInfo User { get; private set; }
+    
+    public void Authenticate(Guid sessionKey, UserInfo userInfo)
+    {
+        this._sessionKey = sessionKey;
+        this.User = userInfo;
+    }
+    
     public async Task Connect(string address, int port)
     {
         var addresses = await Dns.GetHostAddressesAsync(address);
@@ -37,13 +49,28 @@ public class SocketService
         this.listenMessages();
     }
 
+    public async Task RequestChats()
+    {
+        await this.Send(MessageType.GetChatsRequest, new GetChatsRequest());
+    }
+
     public async Task SendAuthMessage(AuthRequest message)
     {
         await this.Send(MessageType.AuthRequest, message);
     }
     
+    public async Task SendRegisterMessage(RegisterRequest message)
+    {
+        await this.Send(MessageType.RegisterRequest, message);
+    }
+    
     public async Task Send<T>(MessageType messageType, T body)
     {
+        if (this._sessionKey.HasValue && body is AuthenticatedRequest r)
+        {
+            r.SessionKey = this._sessionKey.Value;
+        }
+        
         await this._connection.WriteMessage(messageType, body);
     }
     
@@ -69,15 +96,22 @@ public class SocketService
     {
         while (true)
         {
-            var message = await this._connection.ReadMessage();
-            
-            Task.Run(async () =>
+            try
             {
+                var message = await this._connection.ReadMessage();
+            
+                if (!this._eventHandlers.ContainsKey(message.Header.Type))
+                    continue;
+                
                 foreach (var handler in this._eventHandlers[message.Header.Type])
                 {
                     await handler(message);
                 }
-            });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
     }
 }
