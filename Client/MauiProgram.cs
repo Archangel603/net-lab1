@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using Client.Data;
-using Client.Services;
+﻿using Client.Services;
 using Client.Socket;
+using Microsoft.Extensions.Logging;
 using Microsoft.Maui.LifecycleEvents;
 #if WINDOWS
 using WinUIEx;

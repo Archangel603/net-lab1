@@ -6,7 +6,7 @@ using Shared.Message.Requests;
 using Shared.Message.Responses;
 using Shared.Model;
 
-namespace Server.MessageHandlers;
+namespace Server.RequestHandlers;
 
 public class AuthRequestHandler : IRequestHandler<AuthRequest>
 {

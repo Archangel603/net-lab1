@@ -1,7 +1,7 @@
 ﻿using Server.Socket;
 using Shared.Message.Requests;
 
-namespace Shared.Message;
+namespace Server.RequestHandlers;
 
 public interface IRequestHandler
 {

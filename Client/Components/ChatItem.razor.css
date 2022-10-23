@@ -1,0 +1,20 @@
+﻿.chat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    transition: .2s;
+}
+
+.chat-item__message {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-item:not(:disabled):hover {
+    cursor: pointer;
+    background: #f6f6f6;
+}

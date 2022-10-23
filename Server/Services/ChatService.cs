@@ -21,7 +21,12 @@ public class ChatService
     {
         return await this._db.Chats.ToListAsync();
     }
-    
+
+    public async Task<Chat?> Find(Guid chatId)
+    {
+        return await this._db.Chats.FindAsync(chatId);
+    }
+
     public async Task<List<Chat>> GetChats(Guid userId)
     {
         var user = await this._db.Users.FindAsync(userId);
@@ -33,7 +38,28 @@ public class ChatService
     {
         return await this._db.Chats.FirstOrDefaultAsync(c => c.Type == ChatType.Public);
     }
-    
+
+    public async Task<List<Message>> GetMessages(Guid chatId)
+    {
+        return await this._db.Messages.Where(m => m.ChatId == chatId)
+            .OrderByDescending(m => m.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<Message> AddMessage(Guid chatId, Guid senderId, string message)
+    {
+        var entry = this._db.Messages.Add(new Message
+        {
+            ChatId = chatId,
+            SenderId = senderId,
+            Text = message
+        });
+
+        await this._db.SaveChangesAsync();
+
+        return entry.Entity;
+    }
+
     public async Task<Chat> EnsurePublicChatExists()
     {
         var chat = await this.GetPublicChat();

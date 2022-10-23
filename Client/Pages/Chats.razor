@@ -6,51 +6,54 @@
         <div class="users-list">
             @foreach (var user in LoadedUsers.Where(u => u.Id != _socketService.User.Id))
             {
-                <div class="user-item">
+                <div class="user-item" @onclick="@(e => OnUserClick(user))">
+                    <img src="img/user.png" />
                     <div class="user-item__title">
                         @user.Name
                     </div>
                 </div>
             }
         </div>
+        @if (SelectedChat is not null)
+        {
+            <div class="btn chat-back" @onclick="(e => SelectChat(null))">
+                &lt; Back
+            </div>
+        }
     </div>
-    <div class="chats">
-        <h2>Chats</h2>
-        <button @onclick="LoadChats">Load</button>
-        <div class="chat-list">
-            @foreach (var chat in LoadedChats)
+    @if (SelectedChat is null)
+    {
+        <div class="chats">
+            <h2>Chats</h2>
+            <div class="chat-list">
+                @foreach (var chat in LoadedChats)
                 {
-                    <div class="chat-item">
-                        <div class="chat-item__title">
-                            @if (chat.Type == ChatType.Public)
-                            {
-                                <span>Форум</span>
-                            }
-                            else
-                            {
-                                <span>@(chat.Users.First(u => u.Id != _socketService.User.Id).Name)</span>
-                            }
-                        </div>
-                    </div>
+                    <ChatItem Chat="chat" OnClick="@(e => SelectChat(chat))" />
                 }
+            </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <Chat ChatInfo="SelectedChat" />
+    }
 </div>
-
 @using Client.Socket
-@using global::Shared.Message
-@using global::Shared.Message.Responses
-@using Client.Services
 @using global::Shared.Message.Events
 @using global::Shared.Message.Requests
+@using global::Shared.Message.Responses
 @using global::Shared.Model
+@using Client.Components
+@using Client.Services
 @inherits OwningComponentBase
 @inject SocketService _socketService;
 @inject DialogService _dialogService;
-@inject EventSubManager EventSubManager;
+@inject EventSubManager _eventSubManager;
 
 @code {
 
+    public ChatInfo? SelectedChat = null;
+    
     public List<ChatInfo> LoadedChats = new();
     public List<UserInfo> LoadedUsers = new();
 
@@ -77,6 +80,12 @@
         await _dialogService.DisplayAlert("Error!", response.Message);
     }
 
+    public void SelectChat(ChatInfo chat)
+    {
+        SelectedChat = chat;
+        StateHasChanged();
+    }
+    
     public async Task LoadChats()
     {
         await _socketService.Send(new GetChatsRequest());
@@ -87,14 +96,30 @@
         await _socketService.Send(new GetUsersRequest());
     }
 
+    public async Task OnUserClick(UserInfo user)
+    {
+        var existingChat = LoadedChats
+            .FirstOrDefault(c => c.Type == ChatType.Private && c.Users.Any(u => u.Id == user.Id));
+
+        if (existingChat is null)
+        {
+            await _socketService.Send(new CreatePersonalChatRequest(user.Id));
+        }
+        else
+        {
+            SelectChat(existingChat);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        EventSubManager.Subscribe<GetChatsResponse>(OnChatsLoaded);
-        EventSubManager.Subscribe<GetUsersResponse>(OnUsersLoaded);
-        EventSubManager.Subscribe<UserJoinedChatEvent>(OnJoinedChat);
-        EventSubManager.Subscribe<ErrorResponse>(OnError);
+        _eventSubManager.Subscribe<GetChatsResponse>(OnChatsLoaded);
+        _eventSubManager.Subscribe<GetUsersResponse>(OnUsersLoaded);
+        _eventSubManager.Subscribe<UserJoinedChatEvent>(OnJoinedChat);
+        _eventSubManager.Subscribe<ErrorResponse>(OnError);
 
         await LoadChats();
+        await LoadUsers();
     }
 
 }

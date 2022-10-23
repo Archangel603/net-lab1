@@ -1,11 +1,10 @@
 ﻿using Server.Services;
 using Server.Socket;
-using Shared.Message;
 using Shared.Message.Events;
 using Shared.Message.Requests;
 using Shared.Model;
 
-namespace Server.MessageHandlers;
+namespace Server.RequestHandlers;
 
 public class CreatePersonalChatRequestHandler : IRequestHandler<CreatePersonalChatRequest>
 {

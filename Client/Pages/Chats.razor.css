@@ -1,5 +1,54 @@
 .chats-page {
     display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 20px;
+    grid-template-columns: 250px 1fr;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+.users {
+    display: grid;
+    grid-template-rows: min-content 1fr 50px;
+    padding: 20px;
+    border-right: 1px solid #9d9d9d;
+    height: 100vh;
+}
+
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.user-item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-start;
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 600;
+    transition: .2s;
+}
+
+.user-item img {
+    height: 40px;
+}
+
+.user-item:not(:disabled):hover {
+    cursor: pointer;
+    background: #f6f6f6;
+}
+
+.chats {
+    padding: 20px;
+}
+
+.chat-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+    gap: 10px;
 }

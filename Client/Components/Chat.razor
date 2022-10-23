@@ -1,0 +1,84 @@
+﻿@using global::Shared.Model
+@using Client.Socket
+@using global::Shared.Message
+@using global::Shared.Message.Events
+@using global::Shared.Message.Requests
+@using global::Shared.Message.Responses
+<div class="chat">
+    <div class="chat-items">
+        @foreach (var message in ReversedMessages)
+        {
+            <div class="chat-item">
+                <div class="chat-item__sender">
+                    @(message.Sender.Id == _socketService.User.Id ? "You" : message.Sender.Name)
+                </div>
+                <div class="chat-item__message">
+                    <div class="chat-message__text">
+                        @(message.Text)
+                    </div>
+                    <div class="chat-message__time">
+                        @(message.CreatedAt.ToShortTimeString())
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="chat-input__container">
+        <textarea class="chat-input" @bind="Text"></textarea>
+        <button class="btn" @onclick="SendMessage">Send</button>
+    </div>
+</div>
+
+@inject SocketService _socketService;
+@inject EventSubManager _eventSubManager;
+@inherits OwningComponentBase
+
+@code {
+    
+    [Parameter]
+    public ChatInfo ChatInfo { get; set; }
+
+    public List<MessageInfo> Messages = new();
+    
+    public IEnumerable<MessageInfo> ReversedMessages => Messages.Select(m => m).Reverse();
+
+    public string Text = "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _eventSubManager.Subscribe<GetChatMessagesResponse>(OnMessagesLoaded);
+        _eventSubManager.Subscribe<UserSentMessageEvent>(OnMessageReceived);
+        
+        await _socketService.Send(new GetChatMessagesRequest(ChatInfo.Id));
+    }
+
+    private async Task SendMessage()
+    {
+        if (String.IsNullOrEmpty(Text))
+            return;
+
+        await _socketService.Send(new SendMessageRequest
+        {
+            ChatId = ChatInfo.Id,
+            Text = Text
+        });
+
+        Text = "";
+        StateHasChanged();
+    }
+    
+    private async Task OnMessagesLoaded(GetChatMessagesResponse response)
+    {
+        Messages = response.Messages;
+        StateHasChanged();
+    }
+
+    private async Task OnMessageReceived(UserSentMessageEvent e)
+    {
+        if (e.ChatId == ChatInfo.Id)
+        {
+            Messages.Insert(0, e.Message);
+            StateHasChanged();
+        }
+    }
+}

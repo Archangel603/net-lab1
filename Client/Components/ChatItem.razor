@@ -1,0 +1,64 @@
+﻿<div class="chat-item" @onclick="OnClick">
+    <div class="chat-item__title">@ChatTitle</div>
+    <div class="chat-item__message">
+        @if (LastMessage is not null)
+        {
+            <div class="chat-item__message-text">
+                @(LastMessage.Text)
+            </div>
+            <div class="chat-item__message-time">
+                @(LastMessage.CreatedAt.ToShortTimeString())
+            </div>
+        }
+        else
+        {
+            @("No messages")
+        }
+    </div>
+</div>
+
+@inject SocketService _socketService;
+@inject EventSubManager _eventSubManager;
+@using Client.Socket
+@using global::Shared.Message.Requests
+@using global::Shared.Message.Responses
+@using global::Shared.Model
+@inherits OwningComponentBase
+
+@code {
+    [Parameter]
+    public ChatInfo Chat { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    public MessageInfo LastMessage;
+
+    public string ChatTitle
+    {
+        get
+        {
+            if (Chat.Type == ChatType.Public)
+                return "Forum";
+
+            return Chat.Users.First(u => u.Id != _socketService.User.Id).Name;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _eventSubManager.Subscribe<GetChatMessagesResponse>(OnMessagesLoaded);
+        
+        await _socketService.Send(new GetChatMessagesRequest(Chat.Id));
+    }
+
+
+    private async Task OnMessagesLoaded(GetChatMessagesResponse response)
+    {
+        if (response.ChatId == Chat.Id)
+        {
+            LastMessage = response.Messages[0];
+            StateHasChanged();
+        }
+    }
+}

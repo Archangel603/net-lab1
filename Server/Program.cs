@@ -3,7 +3,7 @@ using Autofac;
 using Microsoft.EntityFrameworkCore;
 using Server;
 using Server.Db;
-using Server.MessageHandlers;
+using Server.RequestHandlers;
 using Server.Services;
 using Server.Socket;
 using Shared.Message;
@@ -22,16 +22,16 @@ var dbOptionsBuilder = new DbContextOptionsBuilder()
 
 builder.RegisterInstance(new ServerDbContext(dbOptionsBuilder.Options));
 
-foreach (var handler in MessageExecutorFactory.FindMessageHandlers())
+foreach (var handler in RequestExecutorFactory.FindRequestHandlers())
 {
     var requestType = handler.GetInterfaces().First(i => i.IsGenericType && i.IsAssignableTo(typeof(IRequestHandler)));
     var messageType = requestType.GenericTypeArguments[0];
 
     builder.RegisterType(handler).As(requestType);
     
-    MessageExecutorFactory.RegisterMessageHandler(messageType, requestType);
+    RequestExecutorFactory.RegisterRequestHandler(messageType, requestType);
 }
-builder.Register<MessageExecutorFactory>(c => new MessageExecutorFactory(c.Resolve<IComponentContext>()));
+builder.Register<RequestExecutorFactory>(c => new RequestExecutorFactory(c.Resolve<IComponentContext>()));
 
 builder.RegisterType<EventBus>().SingleInstance();
 builder.RegisterType<ChatService>().SingleInstance();

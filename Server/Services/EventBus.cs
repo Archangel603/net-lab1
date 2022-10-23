@@ -6,7 +6,7 @@ namespace Server.Services;
 public class EventBus
 {
     public ConcurrentQueue<IEvent> Events = new();
-    
+
     public async Task PublishEvent(IEvent e)
     {
         this.Events.Enqueue(e);

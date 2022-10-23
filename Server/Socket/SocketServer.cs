@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using Server.RequestHandlers;
 using Server.Services;
 using Shared.Message;
 using Shared.Message.Events;
@@ -14,20 +15,20 @@ public class SocketServer
     private ConcurrentDictionary<Guid, CancellationTokenSource> _listeners = new();
     private System.Net.Sockets.Socket _socket;
     
-    private readonly MessageExecutorFactory _messageExecutorFactory;
+    private readonly RequestExecutorFactory _requestExecutorFactory;
     private readonly SocketClient.Factory _clientFactory;
     private readonly EventBus _eventBus;
     private readonly ChatService _chatService;
 
     public SocketServer(
         SocketClient.Factory clientFactory,
-        MessageExecutorFactory messageExecutorFactory,
+        RequestExecutorFactory requestExecutorFactory,
         ChatService chatService,
         EventBus eventBus
     )
     {
         this._clientFactory = clientFactory;
-        this._messageExecutorFactory = messageExecutorFactory;
+        this._requestExecutorFactory = requestExecutorFactory;
         this._chatService = chatService;
         this._eventBus = eventBus;
     }
@@ -100,7 +101,7 @@ public class SocketServer
                 
                 Console.WriteLine($"New message of type {message.Body.GetBodyTypeName()} from client {client.Id}");
                 
-                var executor = this._messageExecutorFactory.CreateMessageExecutor(message.Body.GetBodyType());
+                var executor = this._requestExecutorFactory.CreateRequestExecutor(message.Body.GetBodyType());
                 await executor(message, client);
                 fails = 0;
             }

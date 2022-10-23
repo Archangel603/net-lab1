@@ -1,10 +1,9 @@
 ﻿using Server.Services;
 using Server.Socket;
-using Shared.Message;
 using Shared.Message.Requests;
 using Shared.Message.Responses;
 
-namespace Server.MessageHandlers;
+namespace Server.RequestHandlers;
 
 public class RegisterRequestHandler : IRequestHandler<RegisterRequest>
 {
@@ -41,7 +40,7 @@ public class RegisterRequestHandler : IRequestHandler<RegisterRequest>
 
         user = await this._userService.RegisterUser(request.Username, request.Password);
         
-        await client.Connection.WriteMessage(new {});
+        await client.Connection.WriteMessage(new RegisterResponse());
         await this._chatService.AddUserToPublicChat(user);
     }
 }
