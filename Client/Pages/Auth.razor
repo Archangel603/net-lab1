@@ -44,10 +44,12 @@
 @using global::Shared.Message
 @using global::Shared.Message.Responses
 @using Client.Services
-@implements IDisposable
+@using global::Shared.Message.Requests
 @inject SocketService _socketService;
 @inject DialogService _dialogService;
+@inject EventSubManager _eventSubManager;
 @inject NavigationManager _navigation;
+@inherits OwningComponentBase
 
 @code {
 
@@ -76,7 +78,7 @@
             return;
         }
         
-        await _socketService.SendAuthMessage(new AuthRequest
+        await _socketService.Send(new AuthRequest
         {
             Username = username,
             Password = password
@@ -90,25 +92,21 @@
             return;
         }
         
-        await _socketService.SendRegisterMessage(new RegisterRequest
+        await _socketService.Send(new RegisterRequest
         {
             Username = username,
             Password = password
         });
     }
 
-    private async Task OnAuth(Message message)
+    private async Task OnAuth(AuthResponse response)
     {
-        var response = message.Body.Read<AuthResponse>();
-
         _socketService.Authenticate(response.SessionKey, response.User);
         _navigation.NavigateTo("/chats");
     }
     
-    private async Task OnRegister(Message message)
+    private async Task OnRegister(RegisterResponse response)
     {
-        var response = message.Body.Read<RegisterResponse>();
-
         this.username = "";
         this.password = "";
         this.registerPage = false;
@@ -116,25 +114,15 @@
         await _dialogService.DisplayAlert("Registration successful", "");
     }
     
-    private async Task OnError(Message message)
+    private async Task OnError(ErrorResponse response)
     {
-        var response = message.Body.Read<ErrorResponse>();
-
         await _dialogService.DisplayAlert("Error!", response.Message);
     }
 
     protected override void OnInitialized()
     {
-        _socketService.Subscribe(MessageType.AuthResponse, OnAuth);
-        _socketService.Subscribe(MessageType.RegisterResponse, OnRegister);
-        _socketService.Subscribe(MessageType.Error, OnError);
+        _eventSubManager.Subscribe<AuthResponse>(OnAuth);
+        _eventSubManager.Subscribe<RegisterResponse>(OnRegister);
+        _eventSubManager.Subscribe<ErrorResponse>(OnError);
     }
-
-    public void Dispose()
-    {
-        _socketService.Unsubscribe(MessageType.AuthResponse, OnAuth);
-        _socketService.Unsubscribe(MessageType.RegisterResponse, OnRegister);
-        _socketService.Unsubscribe(MessageType.Error, OnError);
-    }
-
 }

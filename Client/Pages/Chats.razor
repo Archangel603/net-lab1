@@ -41,56 +41,60 @@
 @using global::Shared.Message
 @using global::Shared.Message.Responses
 @using Client.Services
+@using global::Shared.Message.Events
+@using global::Shared.Message.Requests
 @using global::Shared.Model
-@implements IDisposable
+@inherits OwningComponentBase
 @inject SocketService _socketService;
 @inject DialogService _dialogService;
+@inject EventSubManager EventSubManager;
 
 @code {
 
     public List<ChatInfo> LoadedChats = new();
     public List<UserInfo> LoadedUsers = new();
 
-    private async Task OnChatsLoaded(Message message)
+    private async Task OnChatsLoaded(GetChatsResponse response)
     {
-        var response = message.Body.Read<GetChatsResponse>();
-
         LoadedChats = response.Chats;
         StateHasChanged();
     }
     
-    private async Task OnUsersLoaded(Message message)
+    private async Task OnJoinedChat(UserJoinedChatEvent e)
     {
-        var response = message.Body.Read<GetChatsResponse>();
-
-        LoadedChats = response.Chats;
+        if (e.User.Id == _socketService.User.Id || LoadedChats.Any(c => c.Id == e.ChatId))
+            await this.LoadChats();
+    }
+    
+    private async Task OnUsersLoaded(GetUsersResponse response)
+    {
+        LoadedUsers = response.Users;
         StateHasChanged();
     }
     
-    private async Task OnError(Message message)
+    private async Task OnError(ErrorResponse response)
     {
-        var response = message.Body.Read<ErrorResponse>();
-
         await _dialogService.DisplayAlert("Error!", response.Message);
     }
 
     public async Task LoadChats()
     {
-        await _socketService.RequestChats();
+        await _socketService.Send(new GetChatsRequest());
+    }
+    
+    public async Task LoadUsers()
+    {
+        await _socketService.Send(new GetUsersRequest());
     }
 
     protected override async Task OnInitializedAsync()
     {
-        _socketService.Subscribe(MessageType.GetChatsResponse, OnChatsLoaded);
-        _socketService.Subscribe(MessageType.Error, OnError);
+        EventSubManager.Subscribe<GetChatsResponse>(OnChatsLoaded);
+        EventSubManager.Subscribe<GetUsersResponse>(OnUsersLoaded);
+        EventSubManager.Subscribe<UserJoinedChatEvent>(OnJoinedChat);
+        EventSubManager.Subscribe<ErrorResponse>(OnError);
 
         await LoadChats();
-    }
-
-    public void Dispose()
-    {
-        _socketService.Unsubscribe(MessageType.GetChatsResponse, OnChatsLoaded);
-        _socketService.Unsubscribe(MessageType.Error, OnError);
     }
 
 }

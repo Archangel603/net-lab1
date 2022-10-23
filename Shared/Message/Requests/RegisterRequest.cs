@@ -1,6 +1,6 @@
-﻿namespace Shared.Message;
+﻿namespace Shared.Message.Requests;
 
-public class RegisterRequest
+public class RegisterRequest : IRequest
 {
     public string Username { get; set; }
     

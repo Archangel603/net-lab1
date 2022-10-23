@@ -2,5 +2,5 @@
 
 public interface IEvent
 {
-    public MessageType MessageType { get; }
+    
 }

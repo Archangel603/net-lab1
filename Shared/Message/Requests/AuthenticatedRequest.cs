@@ -1,6 +1,6 @@
-﻿namespace Shared.Message;
+﻿namespace Shared.Message.Requests;
 
-public class AuthenticatedRequest
+public abstract class AuthenticatedRequest : IRequest
 {
     public Guid SessionKey { get; set; }
 }

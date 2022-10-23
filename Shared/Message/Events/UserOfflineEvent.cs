@@ -2,7 +2,5 @@
 
 public class UserOfflineEvent : IEvent
 {
-    public MessageType MessageType => MessageType.UserOffline;
-    
     public Guid UserId { get; set; }
 }

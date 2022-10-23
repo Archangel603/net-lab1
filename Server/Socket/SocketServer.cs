@@ -14,20 +14,20 @@ public class SocketServer
     private ConcurrentDictionary<Guid, CancellationTokenSource> _listeners = new();
     private System.Net.Sockets.Socket _socket;
     
-    private readonly MessageHandlerFactory _messageHandlerFactory;
+    private readonly MessageExecutorFactory _messageExecutorFactory;
     private readonly SocketClient.Factory _clientFactory;
     private readonly EventBus _eventBus;
     private readonly ChatService _chatService;
 
     public SocketServer(
         SocketClient.Factory clientFactory,
-        MessageHandlerFactory messageHandlerFactory,
+        MessageExecutorFactory messageExecutorFactory,
         ChatService chatService,
         EventBus eventBus
     )
     {
         this._clientFactory = clientFactory;
-        this._messageHandlerFactory = messageHandlerFactory;
+        this._messageExecutorFactory = messageExecutorFactory;
         this._chatService = chatService;
         this._eventBus = eventBus;
     }
@@ -55,7 +55,7 @@ public class SocketServer
             {
                 try
                 {
-                    await client.Connection.WriteMessage(e.MessageType, e);
+                    await client.Connection.WriteMessage(e);
                 }
                 catch (Exception exception)
                 {
@@ -98,10 +98,10 @@ public class SocketServer
             {
                 var message = await client.Connection.ReadMessage();
                 
-                Console.WriteLine($"New message of type {message.Header.Type} from client {client.Id}");
+                Console.WriteLine($"New message of type {message.Body.GetBodyTypeName()} from client {client.Id}");
                 
-                var handler = this._messageHandlerFactory.Create(message.Header.Type);
-                await handler.HandleMessage(message, client);
+                var executor = this._messageExecutorFactory.CreateMessageExecutor(message.Body.GetBodyType());
+                await executor(message, client);
                 fails = 0;
             }
             catch (SocketException)

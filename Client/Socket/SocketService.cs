@@ -1,9 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
-using Shared.Message;
+using System.Reflection;
 using Shared.Message.Requests;
-using Shared.Message.Responses;
 using Shared.Model;
 using Shared.Socket;
 
@@ -13,7 +12,7 @@ public class SocketService
 {
     private SocketConnection _connection;
     private Guid? _sessionKey = null;
-    private readonly ConcurrentDictionary<MessageType, List<Func<Message, Task>>> _eventHandlers = new();
+    private readonly ConcurrentDictionary<Type, List<EventListener>> _eventListeners = new();
 
     public UserInfo User { get; private set; }
     
@@ -49,46 +48,53 @@ public class SocketService
         this.listenMessages();
     }
 
-    public async Task RequestChats()
-    {
-        await this.Send(MessageType.GetChatsRequest, new GetChatsRequest());
-    }
-
-    public async Task SendAuthMessage(AuthRequest message)
-    {
-        await this.Send(MessageType.AuthRequest, message);
-    }
-    
-    public async Task SendRegisterMessage(RegisterRequest message)
-    {
-        await this.Send(MessageType.RegisterRequest, message);
-    }
-    
-    public async Task Send<T>(MessageType messageType, T body)
+    public async Task Send<T>(T body) where T : IRequest
     {
         if (this._sessionKey.HasValue && body is AuthenticatedRequest r)
         {
             r.SessionKey = this._sessionKey.Value;
         }
         
-        await this._connection.WriteMessage(messageType, body);
+        await this._connection.WriteMessage(body);
     }
     
-    public void Subscribe(MessageType messageType, Func<Message, Task> handler)
+    public EventListener Subscribe<T>(Func<T, Task> handler)
     {
-        if (!this._eventHandlers.ContainsKey(messageType))
-        {
-            this._eventHandlers[messageType] = new();
-        }
+        var messageType = typeof(T);
         
-        this._eventHandlers[messageType].Add(handler);
+        if (!this._eventListeners.ContainsKey(messageType))
+        {
+            this._eventListeners[messageType] = new();
+        }
+
+        var listener = new EventListener(handler);
+        
+        this._eventListeners[messageType].Add(listener);
+
+        return listener;
     }
     
-    public void Unsubscribe(MessageType messageType, Func<Message, Task> handler)
+    public void Unsubscribe<T>(Func<T, Task> handler)
     {
-        if (this._eventHandlers.ContainsKey(messageType))
+        var messageType = typeof(T);
+        
+        if (this._eventListeners.ContainsKey(messageType))
         {
-            this._eventHandlers[messageType].Remove(handler);
+            var existing = this._eventListeners[messageType]
+                .FirstOrDefault(e => e.Handler.Equals(handler));
+
+            if (existing is not null)
+            {
+                this._eventListeners[messageType].Remove(existing);
+            }
+        }
+    }
+
+    public void Unsubscribe(Type messageType, EventListener listener)
+    {
+        if (this._eventListeners.ContainsKey(messageType))
+        {
+            this._eventListeners[messageType].Remove(listener);
         }
     }
 
@@ -99,13 +105,14 @@ public class SocketService
             try
             {
                 var message = await this._connection.ReadMessage();
+                var messageType = message.Body.GetBodyType();
             
-                if (!this._eventHandlers.ContainsKey(message.Header.Type))
+                if (!this._eventListeners.ContainsKey(messageType))
                     continue;
                 
-                foreach (var handler in this._eventHandlers[message.Header.Type])
+                foreach (var listener in this._eventListeners[messageType])
                 {
-                    await handler(message);
+                    await listener.Execute(message.Body.Read());
                 }
             }
             catch (Exception e)

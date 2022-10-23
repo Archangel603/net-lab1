@@ -1,26 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text;
+using System.Text.Json;
 
 namespace Shared.Message;
-
-public enum MessageType
-{
-    // Requests
-    AuthRequest, RegisterRequest,
-    GetMessagesRequest, SendMessageRequest,
-    GetChatsRequest, CreateChatRequest, JoinChatRequest, LeaveChatRequest,
-    
-    // Responses
-    AuthResponse, RegisterResponse,
-    GetMessagesResponse, SendMessageResponse,
-    GetChatsResponse, CreateChatResponse, JoinChatResponse, LeaveChatResponse,
-    
-    // Events
-    MessageReceived,
-    UserJoinedChat, UserLeftChat,
-    UserOnline, UserOffline,
-    
-    Error
-}
 
 public class Message
 {
@@ -37,39 +19,55 @@ public class Message
 
 public class MessageHeader
 {
-    public MessageType Type { get; }
-    public long Length { get; }
+    public int TypeLength { get; }
+    public long BodyLength { get; }
 
-    public MessageHeader(MessageType type, long length)
+    public MessageHeader(int typeLength, long bodyLength)
     {
-        this.Type = type;
-        this.Length = length;
+        this.TypeLength = typeLength;
+        this.BodyLength = bodyLength;
     }
 
     public byte[] ToBytes()
     {
-        var length = BitConverter.GetBytes(this.Length);
+        var typeLength = BitConverter.GetBytes(this.TypeLength);
+        var bodyLength = BitConverter.GetBytes(this.BodyLength);
 
-        return length.Prepend((byte)this.Type).ToArray();
+        return typeLength.Concat(bodyLength).ToArray();
     }
     
     public static MessageHeader FromBytes(byte[] bytes)
     {
-        return new MessageHeader((MessageType)bytes[0], BitConverter.ToInt64(bytes[1..]));
+        var typeLength = BitConverter.ToInt32(bytes[0..4]);
+        var bodyLength = BitConverter.ToInt32(bytes[4..]);
+        
+        return new MessageHeader(typeLength, bodyLength);
     }
 }
 
 public class MessageBodyReader
 {
+    private readonly MessageHeader _header;
     private readonly Memory<byte> _buffer;
 
-    public MessageBodyReader(Memory<byte> buffer)
+    public MessageBodyReader(MessageHeader header, Memory<byte> buffer)
     {
         this._buffer = buffer;
+        this._header = header;
     }
 
-    public T Read<T>()
+    public string GetBodyTypeName()
     {
-        return JsonSerializer.Deserialize<T>(this._buffer.Span, JsonSerializerOptions.Default);
+        return Encoding.UTF8.GetString(this._buffer.Span[0..this._header.TypeLength]);
+    }
+    
+    public Type GetBodyType()
+    {
+        return Assembly.GetExecutingAssembly().GetType(GetBodyTypeName());
+    }
+    
+    public object Read()
+    {
+        return JsonSerializer.Deserialize(this._buffer.Span[this._header.TypeLength..], this.GetBodyType(), JsonSerializerOptions.Default);
     }
 }

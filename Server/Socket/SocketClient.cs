@@ -1,4 +1,5 @@
 ﻿using Shared.Message;
+using Shared.Message.Requests;
 using Shared.Message.Responses;
 using Shared.Model;
 using Shared.Socket;
@@ -36,7 +37,7 @@ public class SocketClient
             return true;
         }
 
-        await this.Connection.WriteMessage(MessageType.Error, new ErrorResponse("Unauthorized"));
+        await this.Connection.WriteMessage(new ErrorResponse("Unauthorized"));
         
         return false;
     }

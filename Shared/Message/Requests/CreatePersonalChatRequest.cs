@@ -1,4 +1,4 @@
-﻿namespace Shared.Message;
+﻿namespace Shared.Message.Requests;
 
 public class CreatePersonalChatRequest : AuthenticatedRequest
 {

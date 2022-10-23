@@ -7,7 +7,7 @@ using Shared.Model;
 
 namespace Server.MessageHandlers;
 
-public class GetChatsRequestHandler : IMessageHandler
+public class GetChatsRequestHandler : IRequestHandler<GetChatsRequest>
 {
     private readonly ChatService _chatService;
 
@@ -16,16 +16,14 @@ public class GetChatsRequestHandler : IMessageHandler
         this._chatService = chatService;
     }
     
-    public async Task HandleMessage(Message message, SocketClient client)
+    public async Task Handle(GetChatsRequest request, SocketClient client)
     {
-        var request = message.Body.Read<GetChatsRequest>();
-
         if (!await client.TryAuthenticate(request))
             return;
 
         var chats = await this._chatService.GetChats(client.User.Id);
 
-        await client.Connection.WriteMessage(MessageType.GetChatsResponse, new GetChatsResponse(
+        await client.Connection.WriteMessage(new GetChatsResponse(
             chats.Select(c => new ChatInfo
             {
                 Id = c.Id,

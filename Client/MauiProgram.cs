@@ -42,6 +42,7 @@ public static class MauiProgram
 
 		builder.Services.AddSingleton<DialogService>();
 		builder.Services.AddSingleton<SocketService>();
+		builder.Services.AddScoped<EventSubManager>();
 
 		return builder.Build();
 	}

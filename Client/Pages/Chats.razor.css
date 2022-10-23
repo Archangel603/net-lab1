@@ -1,7 +1,5 @@
-.auth-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 30vh;
-    height: 100vh;
+.chats-page {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 20px;
 }

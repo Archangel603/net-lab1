@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using Shared.Message;
 
@@ -21,7 +22,7 @@ public class SocketConnection
 
         try
         {
-            var bytes = new byte[9];
+            var bytes = new byte[12];
             var received = await this._connection.ReceiveAsync(bytes);
 
             if (bytes.Length != received)
@@ -30,13 +31,15 @@ public class SocketConnection
             }
 
             var header = MessageHeader.FromBytes(bytes);
-            var buffer = new Memory<byte>(new byte[header.Length]);
+            var buffer = new Memory<byte>(new byte[header.TypeLength + header.BodyLength]);
 
             await this._connection.ReceiveAsync(buffer);
+
+            var bodyReader = new MessageBodyReader(header, buffer);
             
-            Console.WriteLine($"Received message of type {header.Type}");
+            Console.WriteLine($"Received message of type {bodyReader.GetBodyTypeName()}");
             
-            return new Message.Message(header, new MessageBodyReader(buffer));
+            return new Message.Message(header, bodyReader);
         }
         finally
         {
@@ -44,7 +47,7 @@ public class SocketConnection
         }
     }
     
-    public async Task WriteMessage<T>(MessageType type, T message)
+    public async Task WriteMessage(object message)
     {
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         
@@ -52,12 +55,14 @@ public class SocketConnection
 
         try
         {
+            var typeName = message.GetType().FullName;
             var serialized = JsonSerializer.SerializeToUtf8Bytes(message, JsonSerializerOptions.Default);
-            var header = new MessageHeader(type, serialized.Length);
-
+            var typeNameBytes = Encoding.UTF8.GetBytes(typeName);
+            var header = new MessageHeader(typeNameBytes.Length, serialized.Length);
+            
             await this._connection.SendAsync(header.ToBytes());
-            await this._connection.SendAsync(serialized);
-            Console.WriteLine($"Sent message of type {type}");
+            await this._connection.SendAsync(typeNameBytes.Concat(serialized).ToArray());
+            Console.WriteLine($"Sent message of type {typeName}");
         }
         finally
         {

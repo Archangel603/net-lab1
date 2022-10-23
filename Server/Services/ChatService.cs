@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Server.Db;
 using Server.Model;
-using Shared.Message;
 using Shared.Message.Events;
 using Shared.Model;
 
