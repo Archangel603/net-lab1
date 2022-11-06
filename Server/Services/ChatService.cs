@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Server.Db;
+using Server.Extensions;
 using Server.Model;
 using Shared.Message.Events;
 using Shared.Model;
@@ -39,9 +40,18 @@ public class ChatService
         return await this._db.Chats.FirstOrDefaultAsync(c => c.Type == ChatType.Public);
     }
 
+    public async Task<Message?> GetLastMessage(Guid chatId)
+    {
+        return await this._db.Messages
+            .Where(m => m.ChatId == chatId)
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+    
     public async Task<List<Message>> GetMessages(Guid chatId)
     {
-        return await this._db.Messages.Where(m => m.ChatId == chatId)
+        return await this._db.Messages
+            .Where(m => m.ChatId == chatId)
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync();
     }
@@ -101,7 +111,7 @@ public class ChatService
         await this._eventBus.PublishEvent(new UserJoinedChatEvent
         {
             ChatId = chat.Id,
-            User = new(user.Id, user.Username)
+            User = user.ToUserInfo()
         });
     }
 

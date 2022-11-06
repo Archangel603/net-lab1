@@ -13,6 +13,8 @@ public class SocketService
     private SocketConnection _connection;
     private Guid? _sessionKey = null;
     private readonly ConcurrentDictionary<Type, List<EventListener>> _eventListeners = new();
+    private string _address;
+    private int _port;
 
     public UserInfo User { get; private set; }
     
@@ -34,7 +36,7 @@ public class SocketService
         var socket = new System.Net.Sockets.Socket(SocketType.Stream, ProtocolType.Tcp);
         var cts = new CancellationTokenSource();
         cts.CancelAfter(5000);
-
+        
         try
         {
             await socket.ConnectAsync(addresses, port, cts.Token);
@@ -46,6 +48,8 @@ public class SocketService
 
         this._connection = new SocketConnection(socket);
         this.listenMessages();
+        this._address = address;
+        this._port = port;
     }
 
     public async Task Send<T>(T body) where T : IRequest
@@ -98,6 +102,29 @@ public class SocketService
         }
     }
 
+    private async Task tryReconnect()
+    {
+        var retries = 0;
+
+        // Try to reconnect for 30 s
+        while (retries < 30)
+        {
+            try
+            {
+                await this.Connect(this._address, this._port);
+                return;
+            }
+            catch (Exception e)
+            {
+                retries++;
+                Console.WriteLine($"Failed to connect to {this._address}:{this._port}");
+                await Task.Delay(1000);
+            }
+        }
+
+        throw new Exception($"Unable to connect to {this._address}:{this._port}");
+    }
+
     private async Task listenMessages()
     {
         while (true)
@@ -106,13 +133,23 @@ public class SocketService
             {
                 var message = await this._connection.ReadMessage();
                 var messageType = message.Body.GetBodyType();
-            
+
                 if (!this._eventListeners.ContainsKey(messageType))
                     continue;
-                
+
                 foreach (var listener in this._eventListeners[messageType])
                 {
                     await listener.Execute(message.Body.Read());
+                }
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine(e);
+                
+                if (!this._connection.IsConnected())
+                {
+                    await tryReconnect();
+                    return;
                 }
             }
             catch (Exception e)

@@ -8,5 +8,7 @@ public class User
     
     public string PasswordHash { get; set; }
     
+    public bool IsAdmin { get; set; }
+    
     public List<Chat> Chats { get; set; }
 }

@@ -35,18 +35,30 @@ public class UserService
         return user.PasswordHash == hashPassword(password);
     }
     
-    public async Task<User> RegisterUser(string username, string password)
+    public async Task<User> RegisterUser(string username, string password, bool admin = false)
     {
         var entry = this._db.Users.Add(new User
         {
             Id = Guid.NewGuid(),
             Username = username,
-            PasswordHash = hashPassword(password)
+            PasswordHash = hashPassword(password),
+            IsAdmin = admin
         });
 
         await this._db.SaveChangesAsync();
 
         return entry.Entity;
+    }
+
+    public async Task DeleteUser(Guid userId)
+    {
+        var user = await this._db.Users.FindAsync(userId);
+
+        if (user is not null)
+        {
+            this._db.Users.Remove(user);
+            await this._db.SaveChangesAsync();
+        }
     }
 
     private string hashPassword(string password)

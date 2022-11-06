@@ -11,7 +11,7 @@ namespace Server.Socket;
 
 public class SocketServer
 {
-    private ConcurrentDictionary<Guid, SocketClient> _clients = new();
+    
     private ConcurrentDictionary<Guid, CancellationTokenSource> _listeners = new();
     private System.Net.Sockets.Socket _socket;
     
@@ -19,18 +19,21 @@ public class SocketServer
     private readonly SocketClient.Factory _clientFactory;
     private readonly EventBus _eventBus;
     private readonly ChatService _chatService;
+    private readonly SocketHub _hub;
 
     public SocketServer(
         SocketClient.Factory clientFactory,
         RequestExecutorFactory requestExecutorFactory,
         ChatService chatService,
-        EventBus eventBus
+        EventBus eventBus,
+        SocketHub hub
     )
     {
         this._clientFactory = clientFactory;
         this._requestExecutorFactory = requestExecutorFactory;
         this._chatService = chatService;
         this._eventBus = eventBus;
+        this._hub = hub;
     }
 
     public async Task Start(int port)
@@ -52,17 +55,7 @@ public class SocketServer
     {
         await foreach (var e in this._eventBus.ListenForEvents(CancellationToken.None))
         {
-            foreach (var (_, client) in this._clients)
-            {
-                try
-                {
-                    await client.Connection.WriteMessage(e);
-                }
-                catch (Exception exception)
-                {
-                    Console.WriteLine(exception);
-                }
-            }
+            await this._hub.SendToAll(e);
         }
     }
 
@@ -78,7 +71,7 @@ public class SocketServer
 
                 Console.WriteLine($"New client {client.Id} connected");
 
-                this._clients[client.Id] = client;
+                this._hub.AddClient(client);
                 this._listeners[client.Id] = cancellationTokenSource;
                 this.listenClient(client, cancellationTokenSource.Token);
             }
@@ -126,7 +119,7 @@ public class SocketServer
     {
         while (true)
         {
-            foreach (var (id, client) in this._clients.ToList())
+            foreach (var (id, client) in this._hub.Clients)
             {
                 try
                 {
@@ -149,11 +142,14 @@ public class SocketServer
     {
         Console.WriteLine($"Client {client.Id} disconnected");
         this._listeners[client.Id].Cancel();
-        this._clients.Remove(client.Id, out _);
+        this._hub.RemoveClient(client.Id);
 
-        await this._eventBus.PublishEvent(new UserOfflineEvent
+        if (client.User is not null)
         {
-            UserId = client.Id
-        });
+            await this._eventBus.PublishEvent(new UserOfflineEvent
+            {
+                UserId = client.User.Id
+            });
+        }
     }
 }

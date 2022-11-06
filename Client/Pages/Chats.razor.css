@@ -22,6 +22,7 @@
 }
 
 .user-item {
+    position: relative;
     display: flex;
     gap: 10px;
     align-items: center;
@@ -33,13 +34,40 @@
     transition: .2s;
 }
 
+.user-item:not(:disabled):hover {
+    cursor: pointer;
+    background: #f6f6f6;
+}
+
 .user-item img {
     height: 40px;
 }
 
-.user-item:not(:disabled):hover {
+.user-item__title {
+    flex: 1;
+}
+
+.user-item__status {
+    display: block;
+    width: 10px;
+    height: 10px;
+    background: grey;
+    border-radius: 50%;
+}
+
+.user-item__online {
+    background: limegreen;
+}
+
+.user-item__delete {
     cursor: pointer;
-    background: #f6f6f6;
+    opacity: 0.5;
+    font-size: 16px;
+    transition: opacity 0.2s;
+}
+
+.user-item__delete:hover {
+    opacity: 1;
 }
 
 .chats {

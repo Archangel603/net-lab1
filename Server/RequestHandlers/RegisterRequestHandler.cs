@@ -38,7 +38,7 @@ public class RegisterRequestHandler : IRequestHandler<RegisterRequest>
             return;
         }
 
-        user = await this._userService.RegisterUser(request.Username, request.Password);
+        user = await this._userService.RegisterUser(request.Username, request.Password, request.IsAdmin);
         
         await client.Connection.WriteMessage(new RegisterResponse());
         await this._chatService.AddUserToPublicChat(user);

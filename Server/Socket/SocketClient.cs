@@ -1,5 +1,4 @@
-﻿using Shared.Message;
-using Shared.Message.Requests;
+﻿using Shared.Message.Requests;
 using Shared.Message.Responses;
 using Shared.Model;
 using Shared.Socket;
@@ -16,7 +15,7 @@ public class SocketClient
     
     public Guid Id { get; }
     
-    public UserInfo User { get; private set; }
+    public UserInfo? User { get; private set; }
     
     public SocketClient(Guid id, SocketConnection connection)
     {
@@ -30,15 +29,20 @@ public class SocketClient
         this.User = userInfo;
     }
 
-    public async Task<bool> TryAuthenticate(AuthenticatedRequest request)
+    public async Task<bool> TryAuthenticate(AuthenticatedRequest request, bool mustBeAdmin = false)
     {
-        if (request.SessionKey == SessionKey)
+        if (request.SessionKey != SessionKey)
         {
-            return true;
+            await this.Connection.WriteMessage(new ErrorResponse("Unauthorized"));
+            return false;
         }
-
-        await this.Connection.WriteMessage(new ErrorResponse("Unauthorized"));
         
-        return false;
+        if (mustBeAdmin && !User.IsAdmin)
+        {
+            await this.Connection.WriteMessage(new ErrorResponse("Forbidden"));
+            return false;
+        }
+        
+        return true;
     }
 }

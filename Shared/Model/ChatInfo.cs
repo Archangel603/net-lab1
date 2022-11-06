@@ -7,4 +7,6 @@ public class ChatInfo
     public ChatType Type { get; set; }
     
     public List<UserInfo> Users { get; set; }
+    
+    public MessageInfo? LastMessage { get; set; }
 }

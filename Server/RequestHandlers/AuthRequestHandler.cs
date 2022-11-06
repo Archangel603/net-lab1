@@ -1,6 +1,6 @@
-﻿using Server.Services;
+﻿using Server.Extensions;
+using Server.Services;
 using Server.Socket;
-using Shared.Message;
 using Shared.Message.Events;
 using Shared.Message.Requests;
 using Shared.Message.Responses;
@@ -47,7 +47,7 @@ public class AuthRequestHandler : IRequestHandler<AuthRequest>
             return;
         }
 
-        client.Authorize(Guid.NewGuid(), new UserInfo(user.Id, user.Username));
+        client.Authorize(Guid.NewGuid(), user.ToUserInfo());
 
         await client.Connection.WriteMessage(new AuthResponse
         {

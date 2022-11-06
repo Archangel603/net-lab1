@@ -1,4 +1,5 @@
-﻿using Server.Services;
+﻿using Server.Extensions;
+using Server.Services;
 using Server.Socket;
 using Shared.Message;
 using Shared.Message.Requests;
@@ -23,13 +24,19 @@ public class GetChatsRequestHandler : IRequestHandler<GetChatsRequest>
 
         var chats = await this._chatService.GetChats(client.User.Id);
 
-        await client.Connection.WriteMessage(new GetChatsResponse(
-            chats.Select(c => new ChatInfo
+        var chatInfos = new List<ChatInfo>(chats.Count);
+
+        foreach (var c in chats)
+        {
+            chatInfos.Add(new ChatInfo
             {
                 Id = c.Id,
                 Type = c.Type,
-                Users = c.Users.Select(u => new UserInfo(u.Id, u.Username)).ToList()
-            })    
-        ));
+                Users = c.Users.Select(u => u.ToUserInfo()).ToList(),
+                LastMessage = (await this._chatService.GetLastMessage(c.Id))?.ToMessageInfo()
+            });
+        }
+        
+        await client.Connection.WriteMessage(new GetChatsResponse(chatInfos));
     }
 }

@@ -16,6 +16,11 @@
                     <input class="text-input" type="text" placeholder="Username" @bind="username"/>
                     <input class="text-input" type="password" placeholder="Password" @bind="password"/>
                     <input class="text-input" type="password" placeholder="Confirm password" @bind="confirmPassword"/>
+                    <label>
+                        <input type="checkbox" placeholder="Confirm password" @bind="isAdmin"/>
+                        <span>Administrator</span>
+                    </label>
+                    
                     <button class="btn" type="submit" disabled="@isLoading">Register</button>
         
                     @if (error != "")
@@ -59,6 +64,7 @@
     private string username = "";
     private string password = "";
     private string confirmPassword = "";
+    private bool isAdmin = false;
     private bool isLoading = false;
 
     private void ShowAuthPage()
@@ -95,7 +101,8 @@
         await _socketService.Send(new RegisterRequest
         {
             Username = username,
-            Password = password
+            Password = password,
+            IsAdmin = isAdmin
         });
     }
 

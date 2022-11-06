@@ -9,7 +9,7 @@
 
 .chat-items {
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     gap: 10px;
     overflow-y: auto;
 }
@@ -37,6 +37,10 @@
 .chat-item:not(:disabled):hover {
     cursor: pointer;
     background: #f6f6f6;
+}
+
+.chat-message__text {
+    white-space: pre-wrap;
 }
 
 .chat-input__container {

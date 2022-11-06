@@ -9,4 +9,16 @@ public class DialogService
             await Application.Current.MainPage.DisplayAlert(title, message, "Close");
         });
     }
+    
+    public async Task<bool> DisplayConfirm(string title, string message)
+    {
+        var confirmed = false;
+        
+        await Application.Current.Dispatcher.DispatchAsync(async () =>
+        {
+            confirmed = await Application.Current.MainPage.DisplayAlert(title, message, "Confirm", "Cancel");
+        });
+
+        return confirmed;
+    }
 }

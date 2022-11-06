@@ -1,4 +1,5 @@
-﻿using Server.Services;
+﻿using Server.Extensions;
+using Server.Services;
 using Server.Socket;
 using Shared.Message;
 using Shared.Message.Requests;
@@ -26,7 +27,7 @@ public class GetChatMessagesRequestHandler : IRequestHandler<GetChatMessagesRequ
         await client.Connection.WriteMessage(new GetChatMessagesResponse(request.ChatId, messages
             .Select(m => new MessageInfo
         {
-            Sender = new UserInfo(m.Sender.Id, m.Sender.Username),
+            Sender = m.Sender.ToUserInfo(),
             Text = m.Text,
             CreatedAt = m.CreatedAt
         })));

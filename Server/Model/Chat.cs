@@ -8,5 +8,5 @@ public class Chat
     
     public ChatType Type { get; set; }
     
-    public List<User> Users { get; set; }
+    public List<User?> Users { get; set; }
 }

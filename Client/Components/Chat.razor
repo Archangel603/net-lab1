@@ -6,7 +6,7 @@
 @using global::Shared.Message.Responses
 <div class="chat">
     <div class="chat-items">
-        @foreach (var message in ReversedMessages)
+        @foreach (var message in Messages)
         {
             <div class="chat-item">
                 <div class="chat-item__sender">
@@ -24,7 +24,7 @@
         }
     </div>
     <div class="chat-input__container">
-        <textarea class="chat-input" @bind="Text"></textarea>
+        <textarea class="chat-input" @bind="Text" @bind:event="oninput" @onkeydown="TextKeyDown"></textarea>
         <button class="btn" @onclick="SendMessage">Send</button>
     </div>
 </div>
@@ -34,13 +34,16 @@
 @inherits OwningComponentBase
 
 @code {
-    
+
+    /// TODO:
+    /// 1. Add global error handling
+    /// 2. Consider adding reconnection or add button to go to index page or auto-redirect there
+    /// 3. Add button to delete chat
+
     [Parameter]
     public ChatInfo ChatInfo { get; set; }
 
     public List<MessageInfo> Messages = new();
-    
-    public IEnumerable<MessageInfo> ReversedMessages => Messages.Select(m => m).Reverse();
 
     public string Text = "";
     
@@ -60,7 +63,7 @@
         await _socketService.Send(new SendMessageRequest
         {
             ChatId = ChatInfo.Id,
-            Text = Text
+            Text = Text.Trim()
         });
 
         Text = "";
@@ -81,4 +84,13 @@
             StateHasChanged();
         }
     }
+
+    private async Task TextKeyDown(KeyboardEventArgs obj)
+    {
+        if (!obj.ShiftKey && !obj.CtrlKey && obj.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
 }

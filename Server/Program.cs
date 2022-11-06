@@ -34,6 +34,7 @@ foreach (var handler in RequestExecutorFactory.FindRequestHandlers())
 builder.Register<RequestExecutorFactory>(c => new RequestExecutorFactory(c.Resolve<IComponentContext>()));
 
 builder.RegisterType<EventBus>().SingleInstance();
+builder.RegisterType<SocketHub>().SingleInstance();
 builder.RegisterType<ChatService>().SingleInstance();
 builder.RegisterType<UserService>().SingleInstance();
 

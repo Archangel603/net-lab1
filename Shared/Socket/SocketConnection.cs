@@ -5,15 +5,15 @@ using Shared.Message;
 
 namespace Shared.Socket;
 
-public class SocketConnection
+public class SocketConnection : IDisposable
 {
     private readonly SemaphoreSlim _readSemaphore = new(1, 1);
     private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
-    private readonly System.Net.Sockets.Socket _connection;
+    private readonly System.Net.Sockets.Socket _socket;
 
-    public SocketConnection(System.Net.Sockets.Socket connection)
+    public SocketConnection(System.Net.Sockets.Socket socket)
     {
-        this._connection = connection;
+        this._socket = socket;
     }
 
     public async Task<Message.Message> ReadMessage()
@@ -23,7 +23,7 @@ public class SocketConnection
         try
         {
             var bytes = new byte[12];
-            var received = await this._connection.ReceiveAsync(bytes);
+            var received = await this._socket.ReceiveAsync(bytes);
 
             if (bytes.Length != received)
             {
@@ -33,7 +33,7 @@ public class SocketConnection
             var header = MessageHeader.FromBytes(bytes);
             var buffer = new Memory<byte>(new byte[header.TypeLength + header.BodyLength]);
 
-            await this._connection.ReceiveAsync(buffer);
+            await this._socket.ReceiveAsync(buffer);
 
             var bodyReader = new MessageBodyReader(header, buffer);
             
@@ -60,8 +60,8 @@ public class SocketConnection
             var typeNameBytes = Encoding.UTF8.GetBytes(typeName);
             var header = new MessageHeader(typeNameBytes.Length, serialized.Length);
             
-            await this._connection.SendAsync(header.ToBytes());
-            await this._connection.SendAsync(typeNameBytes.Concat(serialized).ToArray());
+            await this._socket.SendAsync(header.ToBytes());
+            await this._socket.SendAsync(typeNameBytes.Concat(serialized).ToArray());
             Console.WriteLine($"Sent message of type {typeName}");
         }
         finally
@@ -69,13 +69,20 @@ public class SocketConnection
             this._writeSemaphore.Release();
         }
     }
-    
+
     public bool IsConnected()
     {
         try
         {
-            return !(this._connection.Poll(1, SelectMode.SelectRead) && this._connection.Available == 0);
+            return !(this._socket.Poll(1, SelectMode.SelectRead) && this._socket.Available == 0);
         }
         catch (SocketException) { return false; }
+    }
+
+    public void Dispose()
+    {
+        this._socket.Dispose();
+        this._readSemaphore.Dispose();
+        this._writeSemaphore.Dispose();
     }
 }

@@ -4,13 +4,23 @@
     <div class="users">
         <h2>Users</h2>
         <div class="users-list">
-            @foreach (var user in LoadedUsers.Where(u => u.Id != _socketService.User.Id))
+            @foreach (var user in DisplayedUsers)
             {
                 <div class="user-item" @onclick="@(e => OnUserClick(user))">
                     <img src="img/user.png" />
                     <div class="user-item__title">
                         @user.Name
                     </div>
+                    <span class="@("user-item__status" + (user.Online ? " user-item__online" : ""))">
+                    </span>
+                    
+                    @if (IsAdmin)
+                    {
+                        <span class="user-item__delete" 
+                              @onclick:stopPropagation="true"
+                              @onclick:preventDefault="true"
+                              @onclick="@(e => DeleteUser(user))">x</span>
+                    }
                 </div>
             }
         </div>
@@ -26,7 +36,7 @@
         <div class="chats">
             <h2>Chats</h2>
             <div class="chat-list">
-                @foreach (var chat in LoadedChats)
+                @foreach (var chat in DisplayedChats)
                 {
                     <ChatItem Chat="chat" OnClick="@(e => SelectChat(chat))" />
                 }
@@ -45,39 +55,149 @@
 @using global::Shared.Model
 @using Client.Components
 @using Client.Services
+@using System.Collections.Concurrent
 @inherits OwningComponentBase
 @inject SocketService _socketService;
 @inject DialogService _dialogService;
 @inject EventSubManager _eventSubManager;
+@inject NavigationManager _navigation;
 
 @code {
 
     public ChatInfo? SelectedChat = null;
     
-    public List<ChatInfo> LoadedChats = new();
-    public List<UserInfo> LoadedUsers = new();
+    public readonly ConcurrentDictionary<Guid, ChatInfo> LoadedChats = new();
+    public readonly ConcurrentDictionary<Guid, UserInfo> LoadedUsers = new();
 
+    public bool IsAdmin => _socketService.User.IsAdmin;
+
+    public IEnumerable<ChatInfo> DisplayedChats
+    {
+        get
+        {
+            return LoadedChats.Values
+                .Where(x => x.LastMessage is not null)
+                .OrderByDescending(x => x.Type == ChatType.Public)
+                .ThenByDescending(x => x.LastMessage.CreatedAt);
+        }
+    }
+    
+    public IEnumerable<UserInfo> DisplayedUsers
+    {
+        get
+        {
+            var users = SelectedChat?.Users ?? LoadedUsers.Values.ToList();
+
+            return users
+                .Where(u => u.Id != _socketService.User.Id)
+                .OrderByDescending(u => u.Online)
+                .ThenBy(u => u.Name);
+        }
+    }
+
+    private void SyncUsersAndChats()
+    {
+        foreach (var chat in LoadedChats.Values)
+        {
+            for (var i = 0; i < chat.Users.Count; i++)
+            {
+                if (LoadedUsers.ContainsKey(chat.Users[i].Id))
+                {
+                    chat.Users[i] = LoadedUsers[chat.Users[i].Id];
+                }
+                else
+                {
+                    LoadedUsers[chat.Users[i].Id] = chat.Users[i];
+                }
+            }
+        }
+    }
+    
+    private async Task SetUserStatus(Guid userId, bool online)
+    {
+        if (LoadedUsers.ContainsKey(userId))
+        {
+            LoadedUsers[userId].Online = online;
+        }
+        else
+        {
+            await LoadUsers();
+        }
+
+        StateHasChanged();
+    }
+    
     private async Task OnChatsLoaded(GetChatsResponse response)
     {
-        LoadedChats = response.Chats;
+        LoadedChats.Clear();
+
+        foreach (var chat in response.Chats)
+        {
+            LoadedChats.TryAdd(chat.Id, chat);
+        }
+        
+        SyncUsersAndChats();
         StateHasChanged();
     }
     
     private async Task OnJoinedChat(UserJoinedChatEvent e)
     {
-        if (e.User.Id == _socketService.User.Id || LoadedChats.Any(c => c.Id == e.ChatId))
-            await this.LoadChats();
+        if (e.User.Id == _socketService.User.Id || LoadedChats.ContainsKey(e.ChatId))
+        {
+            await LoadChats();
+        }
     }
     
     private async Task OnUsersLoaded(GetUsersResponse response)
     {
-        LoadedUsers = response.Users;
+        LoadedUsers.Clear();
+
+        foreach (var user in response.Users)
+        {
+            LoadedUsers.TryAdd(user.Id, user);
+        }
+        
+        SyncUsersAndChats();
         StateHasChanged();
     }
     
+    private async Task OnUserDeleted(UserDeletedEvent e)
+    {
+        await LoadUsers();
+        await LoadChats();
+    }
+    
+    private async Task OnUserOnline(UserOnlineEvent e)
+    {
+        await SetUserStatus(e.User.Id, true);
+    }
+    
+    private async Task OnUserOffline(UserOfflineEvent e)
+    {
+        await SetUserStatus(e.UserId, false);
+    }
+    
+    private async Task OnNewMessage(UserSentMessageEvent e)
+    {
+        if (!LoadedChats.ContainsKey(e.ChatId))
+            return;
+
+        LoadedChats[e.ChatId].LastMessage = e.Message;
+        
+        StateHasChanged();
+    }
+
     private async Task OnError(ErrorResponse response)
     {
-        await _dialogService.DisplayAlert("Error!", response.Message);
+        if (_socketService.User is not null && response.Message.Contains("Unauthorized"))
+        {
+            _navigation.NavigateTo("/auth");
+            await _dialogService.DisplayAlert("Disconnected from the server", "Please authorize again");
+        }
+        else
+        {
+            await _dialogService.DisplayAlert("Error!", response.Message);
+        }
     }
 
     public void SelectChat(ChatInfo chat)
@@ -98,11 +218,24 @@
 
     public async Task OnUserClick(UserInfo user)
     {
-        var existingChat = LoadedChats
+        var existingChat = LoadedChats.Values
             .FirstOrDefault(c => c.Type == ChatType.Private && c.Users.Any(u => u.Id == user.Id));
 
         if (existingChat is null)
         {
+            EventListener listener = null;
+            listener = _socketService.Subscribe(async (GetChatsResponse e) =>
+            {
+                var chat = e.Chats
+                    .FirstOrDefault(c => c.Type == ChatType.Private && c.Users.Any(u => u.Id == user.Id));
+
+                if (chat is not null)
+                {
+                    _socketService.Unsubscribe(typeof(GetChatsResponse), listener);
+                    SelectChat(chat);
+                }
+            });
+            
             await _socketService.Send(new CreatePersonalChatRequest(user.Id));
         }
         else
@@ -116,10 +249,19 @@
         _eventSubManager.Subscribe<GetChatsResponse>(OnChatsLoaded);
         _eventSubManager.Subscribe<GetUsersResponse>(OnUsersLoaded);
         _eventSubManager.Subscribe<UserJoinedChatEvent>(OnJoinedChat);
+        _eventSubManager.Subscribe<UserSentMessageEvent>(OnNewMessage);
+        _eventSubManager.Subscribe<UserOnlineEvent>(OnUserOnline);
+        _eventSubManager.Subscribe<UserOfflineEvent>(OnUserOffline);
+        _eventSubManager.Subscribe<UserDeletedEvent>(OnUserDeleted);
         _eventSubManager.Subscribe<ErrorResponse>(OnError);
 
         await LoadChats();
         await LoadUsers();
+    }
+
+    private async Task DeleteUser(UserInfo user)
+    {
+        await _socketService.Send(new DeleteUserRequest(user.Id));
     }
 
 }
