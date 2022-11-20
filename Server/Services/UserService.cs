@@ -52,7 +52,7 @@ public class UserService
 
     public async Task DeleteUser(Guid userId)
     {
-        var user = await this._db.Users.FindAsync(userId);
+        var user = await this._db.Users.FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user is not null)
         {

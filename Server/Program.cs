@@ -20,7 +20,7 @@ var builder = new ContainerBuilder();
 var dbOptionsBuilder = new DbContextOptionsBuilder()
     .UseNpgsql(config.ConnectionString);
 
-builder.RegisterInstance(new ServerDbContext(dbOptionsBuilder.Options));
+builder.Register<ServerDbContext>(_ => new ServerDbContext(dbOptionsBuilder.Options));
 
 foreach (var handler in RequestExecutorFactory.FindRequestHandlers())
 {
@@ -35,8 +35,8 @@ builder.Register<RequestExecutorFactory>(c => new RequestExecutorFactory(c.Resol
 
 builder.RegisterType<EventBus>().SingleInstance();
 builder.RegisterType<SocketHub>().SingleInstance();
-builder.RegisterType<ChatService>().SingleInstance();
-builder.RegisterType<UserService>().SingleInstance();
+builder.RegisterType<ChatService>();
+builder.RegisterType<UserService>();
 
 builder.RegisterType<SocketClient>();
 builder.RegisterType<SocketServer>().SingleInstance();

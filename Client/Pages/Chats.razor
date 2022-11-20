@@ -163,6 +163,13 @@
     
     private async Task OnUserDeleted(UserDeletedEvent e)
     {
+        if (e.UserId == _socketService.User.Id)
+        {
+            _navigation.NavigateTo("/auth");
+            await _dialogService.DisplayAlert("Disconnected from the server", "Your account was deleted by administrator");
+            return;
+        }
+        
         await LoadUsers();
         await LoadChats();
     }
