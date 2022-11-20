@@ -40,8 +40,10 @@ public class SocketHub
     
     public async Task SendToUser(Guid clientId, object message)
     {
-        await this._clients.Values
-            .First(x => x.User?.Id == clientId)
-            .Connection.WriteMessage(message);
+        await Task.WhenAll(
+            this._clients.Values
+                .Where(x => x.User?.Id == clientId)
+                .Select(x => x.Connection.WriteMessage(message))
+        );
     }
 }
