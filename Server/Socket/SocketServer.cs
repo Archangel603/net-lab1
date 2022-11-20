@@ -146,10 +146,13 @@ public class SocketServer
 
         if (client.User is not null)
         {
-            await this._eventBus.PublishEvent(new UserOfflineEvent
+            if (this._hub.Clients.Values.All(c => c.User?.Id != client.User.Id))
             {
-                UserId = client.User.Id
-            });
+                await this._eventBus.PublishEvent(new UserOfflineEvent
+                {
+                    UserId = client.User.Id
+                });
+            }
         }
     }
 }
